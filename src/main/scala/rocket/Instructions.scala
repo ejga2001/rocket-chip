@@ -998,6 +998,9 @@ object CSRs {
   val mstateen2 = 0x30e
   val mstateen3 = 0x30f
   val mcountinhibit = 0x320
+  val mcountinhibit_u = 0x390
+  val mcountinhibit_s = 0x391
+  val mcountinhibit_m = 0x392
   val mscratch = 0x340
   val mepc = 0x341
   val mcause = 0x342
@@ -1429,6 +1432,9 @@ object CSRs {
     res += mstateen2
     res += mstateen3
     res += mcountinhibit
+    res += mcountinhibit_u
+    res += mcountinhibit_s
+    res += mcountinhibit_m
     res += mscratch
     res += mepc
     res += mcause
