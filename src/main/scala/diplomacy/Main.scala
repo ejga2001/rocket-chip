@@ -11,33 +11,59 @@ import mainargs._
 
 object Main {
   @main def elaborate(
-    @arg(name = "dir", doc = "output directory") dir: String,
-    @arg(name = "top", doc = "top Module or LazyModule fullpath") top: String,
-    @arg(name = "config", doc = "CDE configs") config: Seq[String]
-  ) = {
+                       @arg(name = "dir", doc = "output directory") dir: String,
+                       @arg(name = "top", doc = "top Module or LazyModule fullpath") top: String,
+                       @arg(name = "config", doc = "CDE configs") config: Seq[String],
+                       @arg(name = "params", doc = "CDE configs") params: String
+                     ) = {
     var topName: String = null
-    val gen = () => 
-      Class
-        .forName(top)
-        .getConstructor(classOf[Parameters])
-        .newInstance(new Config(config.foldRight(Parameters.empty) {
-          case (currentName, config) =>
-            val currentConfig = Class.forName(currentName).newInstance.asInstanceOf[Config]
-            currentConfig ++ config
-        })) match {
-          case m: RawModule => m
-          case lm: LazyModule => LazyModule(lm).module
-        }
+    var params_int: Seq[Int] = List()
+    if (params != "''") {
+      val chunks: Array[String] = params.split(":")
+      params_int = chunks.map(_.trim.toInt).toSeq
+    }
 
+    val gen =
+      if (params_int.nonEmpty) {
+        () =>
+          Class
+            .forName(top)
+            .getConstructor(classOf[Parameters])
+            .newInstance(new Config(config.foldRight(Parameters.empty) {
+              case (currentName, config) =>
+                val currentConfig = Class.forName(currentName)
+                  .getConstructor(classOf[Seq[Int]])
+                  .newInstance(params_int)
+                  .asInstanceOf[Config]
+                currentConfig ++ config
+            })) match {
+            case m: RawModule => m
+            case lm: LazyModule => LazyModule(lm).module
+          }
+      } else {
+        () =>
+          Class
+            .forName(top)
+            .getConstructor(classOf[Parameters])
+            .newInstance(new Config(config.foldRight(Parameters.empty) {
+              case (currentName, config) =>
+                val currentConfig = Class.forName(currentName).newInstance().asInstanceOf[Config]
+                currentConfig ++ config
+            })) match {
+            case m: RawModule => m
+            case lm: LazyModule => LazyModule(lm).module
+          }
+      }
+    println(params_int)
     val annos = Seq(
       new Elaborate,
       new Convert
     ).foldLeft(
-      Seq(
-        TargetDirAnnotation(dir),
-        ChiselGeneratorAnnotation(() => gen())
-      ): AnnotationSeq
-    ) { case (annos, phase) => phase.transform(annos) }
+        Seq(
+          TargetDirAnnotation(dir),
+          ChiselGeneratorAnnotation(() => gen())
+        ): AnnotationSeq
+      ) { case (annos, phase) => phase.transform(annos) }
       .flatMap {
         case firrtl.stage.FirrtlCircuitAnnotation(circuit) =>
           topName = circuit.main
@@ -53,4 +79,3 @@ object Main {
 
   def main(args: Array[String]): Unit = ParserForMethods(this).runOrExit(args)
 }
-
